@@ -22,6 +22,14 @@ For experiments, we need only normal execution traces with diverse topologies to
 
 ## Figures
 
+0. Tab: Related Work table
+1. Fig: Node-shifts
+2. Fig: Simple GON model
+3. Alg: GON Training algorithm
+4. Alg: Recovery algorithm with confidence based fine-tuning
+5. Fig: Results
+6. Fig: Ablation (always train, with GAN, traditional surrogate)
+7. Fig: Sensitivity (learning rate, memory size, tabu params)
 
 ## License
 
