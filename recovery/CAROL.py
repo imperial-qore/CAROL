@@ -2,6 +2,7 @@ import sys
 sys.path.append('recovery/CAROLSrc/')
 
 import numpy as np
+import random
 from copy import deepcopy
 from .Recovery import *
 from .CAROLSrc.src.constants import *
@@ -15,6 +16,8 @@ class CAROLRecovery(Recovery):
         self.env_name = 'simulator' if env == '' else 'framework'
         self.model_name = f'CAROL_{self.env_name}_{hosts}'
         self.model_loaded = False
+        self.tenure = 3
+        self.k = 5
 
     def load_model(self):
         # Load training time series and thresholds
@@ -41,44 +44,77 @@ class CAROLRecovery(Recovery):
             self.model_plotter.plot(self.accuracy_list, self.epoch)
             save_model(model_folder, f'{self.model_name}.ckpt', self.model, self.optimizer, self.epoch, self.accuracy_list)
 
-    def getObjective(self, cid, hostID):
-        energy = self.env.stats.runSimpleSimulation([(cid, hostID)])
+    def getObjective(self, cids, hids):
+        decision = [(cids[i], hids[i]) for i in range(len(cids))]
+        energy = self.env.stats.runSimpleSimulation(decision)
         return energy
+
+    def getInit(self, cids):
+        return tuple(random.sample(range(self.hosts), len(cids)))
+
+    def getRandomNeighbours(self, sol, k):
+        neighbours = []
+        for _ in range(k):
+            newsol = list(deepcopy(sol))
+            newsol[random.choice(range(len(newsol)))] = random.choice(range(self.hosts))
+            neighbours.append(tuple(newsol))
+        return neighbours
 
     def optimize_decision(self, state, schedule):
         bcel = nn.BCELoss(reduction = 'mean')
         real_label = torch.tensor([0.9]).type(torch.DoubleTensor)
-        result, oldResult = {}, {} 
-        bestScore, oldScore = 1000, 10000
-        while bestScore < oldScore:
-            oldScore, oldResult = bestScore, result
-            # update schedule based on recovery migrations
-            for cid in result:
-                orig_host = torch.argmax(schedule[cid])
-                schedule[cid][orig_host] = 0
-                schedule[cid][result[cid]] = 1
-            # get anomalies
-            pred_state = gen(self.model, state, schedule, real_label, bcel, 1e-3)
-            pred_state = pred_state.view(1, -1).detach().clone().numpy()
-            anomaly_any_dim, _ = check_anomalies(pred_state, self.thresholds, self.env_name)
-            hostlist = np.where(anomaly_any_dim[0])[0].tolist()
-            # select MMT containers
-            selectedContainerIDs = []
-            for hostID in hostlist:
-                containerIDs = self.env.getContainersOfHost(hostID)
-                if containerIDs:
-                    containerIPS = [self.env.containerlist[cid].getRAM()[0] for cid in containerIDs]
-                    selectedContainerIDs.append(containerIDs[np.argmin(containerIPS)])
-            scorecount = 0
-            # select target hosts based on co-simulated ficitious play
-            for cid in containerIDs:
-                scores = [self.getObjective(cid, hostID) for hostID, _ in enumerate(self.env.hostlist)]
-                result[cid] = np.argmin(scores)
-                scorecount += np.min(scores)
-            scorecount = scorecount / (len(containerIDs) + 1e-4)
-            migration_overhead = len(containerIDs) / (self.env.getNumActiveContainers() + 1e-4)
-            bestScore = scorecount + migration_overhead
-        return result
+        result = {}
+        # get anomalies
+        pred_state = gen(self.model, state, schedule, real_label, bcel, 1e-3)
+        pred_state = pred_state.view(1, -1).detach().clone().numpy()
+        anomaly_any_dim, _ = check_anomalies(pred_state, self.thresholds, self.env_name)
+        hostlist = np.where(anomaly_any_dim[0])[0].tolist()
+        # select MMT containers
+        selectedContainerIDs = []
+        for hostID in hostlist:
+            containerIDs = self.env.getContainersOfHost(hostID)
+            if containerIDs:
+                containerIPS = [self.env.containerlist[cid].getRAM()[0] for cid in containerIDs]
+                selectedContainerIDs.append(containerIDs[np.argmin(containerIPS)])
+        # select target hosts based on tabu search (emulates node-shift)
+        bestsol = self.getInit(selectedContainerIDs)
+        bestobj = self.getObjective(selectedContainerIDs, bestsol)
+        csol, cobj = bestsol, bestobj
+        tabu = {}; it, terminate = 1, 0
+        for _ in range(400):
+            if terminate > 100: break
+            # print('### iter {}###  Current_Objvalue: {}, Best_Objvalue: {}'.format(it, cobj, bestobj))
+            neighbours = self.getRandomNeighbours(csol, self.k)
+            # searching the neighbourhood of the current solution
+            for n in neighbours:
+                if n in tabu: continue
+                tabu[n] = {'val': self.getObjective(selectedContainerIDs, n), 'time': 0}
+            # admissible move
+            for _ in range(400):
+                # select the move with the lowest objective
+                bestn = min(tabu, key =lambda x: tabu[x]['val'])
+                bval, btime = tabu[bestn]['val'], tabu[bestn]['time']
+                # not tabu
+                if btime < it:
+                    csol, cobj = bestn, bval
+                    if bval < bestobj:
+                        bestsol, bestobj = bestn, bval
+                        terminate = 0
+                    else:
+                        terminate += 1
+                    tabu[bestn]['time'] = it + self.tenure
+                    it += 1; break
+                # tabu
+                else:
+                    # aspiration
+                    if bval < bestobj:
+                        csol, cobj = bestn, bval
+                        bestsol, bestobj = bestn, bval
+                        terminate = 0; it += 1; break
+                    else:
+                        tabu[bestn]['val'] = float('inf')
+                        continue
+        return [(selectedContainerIDs[i], bestsol[i]) for i in range(len(selectedContainerIDs))]
 
     def get_data(self):
         schedule_data = torch.tensor(self.env.scheduler.result_cache).double()
