@@ -12,7 +12,7 @@ Why is broker resilience crucial in edge federations? This is because if a worke
 
 Explain what are brokers and workers. There is a tradeoff to the number of brokers we need in the system. We assume that gateway devices send to the closest broker, breaking ties uniformly at random. Now if brokers are too many, workers are too less impacting performance of the system. If brokers are too less, we have less single points of failures and possibly brokers become bottlenecks. So we can increase or decrease number of brokers but both need to be considered. 
 
-Regular optimization techniques that use neural networks as a surrogate model claim that this approach is better because of goal-directed search (by using gradients compared to other search strategies. However, in discrete domains, there is an approximation that the surrogate surface would be smooth, i.e., the closest discrete point to the optimum would be optimum in the discrete space. However, this is not always true and can dive rise to non-optimal solutions.
+Regular optimization techniques that use neural networks as a surrogate model claim that this approach is better because of goal-directed search (by using gradients compared to other search strategies. However, in discrete domains, there is an approximation that the surrogate surface would be smooth, i.e., the closest discrete point to the optimum would be optimum in the discrete space. However, this is not always true and can give rise to non-optimal solutions.
 
 Another problem with GOBI is that we have no way to find out the confidence of the surrogate surface, i.e. the approximation of the real metrics. This leads us to either perform uncertainty based optimization (GOSH) or add other parameters like topology etc to improve performance (HUNTER). Another problem arising from this is that we do not know when to fine-tune the model, so we need to do this at each interval which might not be the best decision considering variable and spiky loads can cause contention in constrained edge nodes. However, for adaptive systems, confidence is important to make sure we fine-tune only when needed. Thus instead of going from Graph -> NN -> Metrics, we need to go to Graph + Metrics -> NN -> confidence. This is similar to a discriminator network that predicts the probability of true data. We only need normal execution traces for this. Another advantage this GON provides is that we can now train using random samples to make sure that for unseen settings the confidence is lower, so that we can fine-tune the model. We can use POT to find the confidence thresholds below which we train the model with latest info on the new graph topology till the confidence becomes normal. 
 
@@ -23,13 +23,15 @@ For experiments, we need only normal execution traces with diverse topologies to
 ## Figures
 
 0. Tab: Related Work table
-1. Fig: Node-shifts
-2. Fig: Simple GON model
+1. @Fig: Node-shifts
+2. @Fig: Simple GON model
 3. Alg: GON Training algorithm
 4. Alg: Recovery algorithm with confidence based fine-tuning
-5. Fig: Results
-6. Fig: Ablation (always train, with GAN, traditional surrogate)
-7. Fig: Sensitivity (learning rate, memory size, tabu params)
+5. Fig: GON Training (loss, MSE, confidence)
+6. @Fig: Visualization of confidence score, POT, and when trained.
+5. @Fig: Results
+6. @Fig: Ablation (always train, with GAN, traditional surrogate)
+7. @Fig: Sensitivity (learning rate, memory size, tabu params)
 
 ## License
 
