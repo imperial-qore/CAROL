@@ -47,7 +47,7 @@ python3 main.py
 ## External Links
 | Items | Contents | 
 | --- | --- |
-| **Pre-print** | (In progress) |
+| **Pre-print** | https://arxiv.org/pdf/2203.07140.pdf |
 | **Contact**| Shreshth Tuli ([@shreshthtuli](https://github.com/shreshthtuli))  |
 | **Funding**| Imperial President's scholarship |
 
