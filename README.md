@@ -52,7 +52,7 @@ python3 main.py
 | **Funding**| Imperial President's scholarship |
 
 ## Cite this work
-Our work is accepted in IEEE Conference on Computer Communications (INFOCOM) 2022. Cite our work using the bibtex entry below.
+Our work is accepted in IEEE/IFIP International Conference on Dependable Systems and Networks (DSN) 2022. Cite our work using the bibtex entry below.
 ```bibtex
 @inproceedings{tuli2022carol,
   title={{CAROL: Confidence-Aware Resilience Model for Edge Federations}},
